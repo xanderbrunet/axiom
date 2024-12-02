@@ -1,21 +1,32 @@
 import { supabase } from "@/lib/createSupabaseClient";
 import  secureLocalStorage from  "react-secure-storage";
 
-
 export function setLastPageVisited() {
     localStorage.setItem("lastVisitedPage", window.location.pathname);
 }
 
 export async function HandleLogout() {
-    const { error } = await supabase.auth.signOut();
-    localStorage.clear();
-    secureLocalStorage.clear();
-    if (error) console.error("Error logging out:", error);
-    else {
-        console.log("User logged out");
-        window.location.reload();
-    }
+  const { error } = await supabase.auth.signOut();
+  localStorage.clear();
+  secureLocalStorage.clear();
+  deleteAllCookies();
+  if (error) {
+      console.error("Error logging out:", error);
+  } else {
+      console.log("User logged out");
+      window.location.href = "/auth";
+  }
 }
+
+// Utility function to delete all cookies
+function deleteAllCookies() {
+  const cookies = document.cookie.split("; ");
+  for (const cookie of cookies) {
+      const [name] = cookie.split("=");
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+  }
+}
+
 
 export async function CheckLogin() {
     const user = await supabase.auth.getSession();
@@ -73,7 +84,7 @@ interface UserProfile {
     switch (info) {
       case "name":
         return userProfiles?.[0]?.name || null;
-    case "username":
+      case "username":
         return userProfiles?.[0]?.username || null;
       default:
         console.error(`Unsupported info type: ${info}`);

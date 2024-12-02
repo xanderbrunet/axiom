@@ -20,7 +20,7 @@ import { ModeToggle } from "@/components/theme-switch";
 
 export default function AxiomSidebar() {
   return (
-    <Sidebar className="">
+    <Sidebar className="z-50">
       <SidebarHeader className="justify-start p-3 flex flex-row items-center">
         <AxiomSquareLogo className="h-6 w-fit" />
         <p className="text-2xl font-bold stopmotion-regular mt-[2px]">AXIOM</p>
@@ -45,7 +45,7 @@ export default function AxiomSidebar() {
                 <SidebarMenuButton asChild>
                   <Link href={"/projects"}>
                     <LuNewspaper />
-                    <span>Your Projects</span>
+                    <span>Projects</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

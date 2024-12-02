@@ -6,7 +6,7 @@ interface AuthLayoutProps {
 
 const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
   return (
-    <div className="w-dvw min-h-dvh flex overflow-hidden">
+    <div className="w-dvw min-h-dvh flex overflow-hidden z-50">
         {children}
     </div>
   )

@@ -37,16 +37,11 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${publicSans.variable} ${kings.variable} antialiased overflow-x-hidden bg-background`}
+        className={`${publicSans.variable} ${kings.variable} antialiased overflow-x-hidden bg-background w-dvw min-h-dvh`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          
-        >
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SidebarProvider defaultOpen={defaultOpen}>
-            <SidebarTrigger className="fixed top-3 left-3 dark:bg-neutral-900 dark:text-white w-11 h-11" />
+            <SidebarTrigger className="fixed top-3 left-3 bg-background dark:text-white w-11 h-11 z-[49]" />
             <PageTransition>{children}</PageTransition>
             <Toaster />
           </SidebarProvider>

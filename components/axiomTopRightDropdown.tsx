@@ -61,7 +61,7 @@ export const AxiomTopRightDropdown = () => {
                                     exit={{ opacity: 0, display: "none" }}
                                     transition={{ duration: 0.6, ease: "easeInOut" }}
                                 >
-                                    {name}
+                                    Hello, {name}
                                 </motion.span>
                             )}
                         </AnimatePresence>
