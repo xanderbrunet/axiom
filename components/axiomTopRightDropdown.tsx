@@ -18,6 +18,7 @@ export const AxiomTopRightDropdown = () => {
     const [email, setEmail] = useState<string | null>("");
     const [name, setName] = useState<string | null>("");
     const [userName, setUserName] = useState<string | null>("");
+    const [userPfp, setUserPfp] = useState<string | null>("");
     const [showText, setShowText] = useState(true);
     const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -26,6 +27,7 @@ export const AxiomTopRightDropdown = () => {
         getUserInfo("email").then((email) => setEmail(email ?? ""));
         getUserInfoFromProfiles("name").then((name) => setName(name ?? ""));
         getUserInfoFromProfiles("username").then((username) => setUserName(username ?? ""));
+        getUserInfoFromProfiles("pfp").then((pfp) => setUserPfp(pfp ?? ""));
 
         // Set a delay to start fading out text smoothly after 5 seconds
         const timer = setTimeout(() => {
@@ -36,7 +38,7 @@ export const AxiomTopRightDropdown = () => {
     }, []);
 
     return (
-        <div className="fixed top-2 right-2 p-1 bg-background z-40">
+        <div className="fixed top-3 right-3 z-40">
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <motion.button
@@ -72,7 +74,7 @@ export const AxiomTopRightDropdown = () => {
                             className="flex items-center"
                         >
                             <Avatar className="w-7 h-auto mr-1">
-                                <AvatarImage src="https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png" />
+                                <AvatarImage src={userPfp || "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png"} />
                                 <AvatarFallback>CN</AvatarFallback>
                             </Avatar>
                             <LuChevronDown />

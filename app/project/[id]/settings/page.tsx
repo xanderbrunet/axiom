@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,6 +27,18 @@ import { LuPlus } from "react-icons/lu";
 import { supabase } from "@/lib/createSupabaseClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Card, CardContent } from "@/components/ui/card";
 
 const ProjectSettings = () => {
   const params = useParams();
@@ -44,7 +56,21 @@ const ProjectSettings = () => {
   interface UserProfile {
     id: string;
     name: string;
-    avatar_url: string;
+    username: string;
+    pfp_link: string;
+  }
+
+  interface ProjectContributor {
+    role: string;
+    user_profiles: UserProfile;
+  }
+
+  interface ProjectData {
+    title: string;
+    description: string;
+    project_cover: string;
+    visibility: string;
+    project_contributors: ProjectContributor[];
   }
 
   interface Contributor {
@@ -62,14 +88,27 @@ const ProjectSettings = () => {
   const [newContributorUsername, setNewContributorUsername] = useState("");
   const [newContributorRole, setNewContributorRole] = useState("");
 
+  // State variables for user search
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [userSearchResult, setUserSearchResult] = useState<UserProfile | null>(
+    null
+  );
+  const [userSearchError, setUserSearchError] = useState<string | null>(null);
+
+  // State for AlertDialog
+  const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch project data
+        // Fetch project data and contributors with user profiles in one query
         const { data: projectData, error: projectError } = await supabase
           .from("projects")
-          .select("title, description, project_cover, visibility")
+          .select(
+            `title, description, project_cover, visibility, 
+            project_contributors!fk_project_id(role, user_profiles(id, name, username, pfp_link))`
+          )
           .eq("id", id)
           .single();
 
@@ -82,69 +121,28 @@ const ProjectSettings = () => {
           });
           return;
         } else if (projectData) {
+          // Type assertion
+          const typedProjectData = projectData as unknown as ProjectData;
+
           setProjectData({
-            title: projectData.title,
-            description: projectData.description,
-            project_cover: projectData.project_cover,
-            visibility: projectData.visibility,
+            title: typedProjectData.title,
+            description: typedProjectData.description,
+            project_cover: typedProjectData.project_cover,
+            visibility: typedProjectData.visibility,
           });
-        }
 
-        // Fetch contributors
-        const { data: contributorsData, error: contributorsError } =
-          await supabase
-            .from("project_contributors")
-            .select("user_id, role")
-            .eq("project_id", id);
-
-        if (contributorsError) {
-          console.error("Error fetching project contributors:", contributorsError);
-          toast.toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to fetch project contributors.",
-          });
-          return;
-        } else if (contributorsData) {
-          const userIds = contributorsData.map(
-            (contributor) => contributor.user_id
-          );
-
-          // Fetch user profiles
-          const { data: userProfilesData, error: userProfilesError } =
-            await supabase
-              .from("user_profiles")
-              .select("id, name, pfp_link")
-              .in("id", userIds);
-
-          if (userProfilesError) {
-            console.error("Error fetching user profiles:", userProfilesError);
-            toast.toast({
-              variant: "destructive",
-              title: "Error",
-              description: "Failed to fetch user profiles.",
-            });
-            return;
-          } else if (userProfilesData) {
-            const formattedContributors: Contributor[] = contributorsData.map(
-              (contributor) => {
-                const userProfile = userProfilesData.find(
-                  (profile) => profile.id === contributor.user_id
-                );
-
-                return {
-                  user_id: contributor.user_id,
-                  role: contributor.role,
-                  user_profiles: {
-                    id: userProfile?.id || "",
-                    name: userProfile?.name || "Unknown",
-                    avatar_url: userProfile?.pfp_link || "",
-                  },
-                };
-              }
-            );
-            setContributors(formattedContributors);
-          }
+          const formattedContributors: Contributor[] =
+            typedProjectData.project_contributors.map((contributor) => ({
+              user_id: contributor.user_profiles.id,
+              role: contributor.role,
+              user_profiles: {
+                id: contributor.user_profiles.id,
+                name: contributor.user_profiles.name || "Unknown",
+                username: contributor.user_profiles.username || "",
+                pfp_link: contributor.user_profiles.pfp_link || "",
+              },
+            }));
+          setContributors(formattedContributors);
         }
       } catch (error) {
         console.error(
@@ -200,11 +198,10 @@ const ProjectSettings = () => {
     }
     try {
       console.log("Saving changes:", filteredFields);
-      const { error, data } = await supabase
+      const { error } = await supabase
         .from("projects")
         .update(filteredFields)
         .eq("id", id);
-      console.log("Data:", data);
       if (error) {
         console.error("Error saving changes:", error);
         toast.toast({
@@ -230,10 +227,7 @@ const ProjectSettings = () => {
   };
 
   // Handle role update for a contributor
-  const updateContributorRole = async (
-    contributorId: string,
-    role: string
-  ) => {
+  const updateContributorRole = async (contributorId: string, role: string) => {
     try {
       // Use the update_contributor_role function
       const { error } = await supabase.rpc("update_contributor_role", {
@@ -274,17 +268,12 @@ const ProjectSettings = () => {
   };
 
   // Handle adding a new collaborator
-  const addCollaborator = async (username: string, role: string) => {
+  const addCollaborator = async () => {
     try {
-      // Fetch user profile by username
-      console.log("Adding collaborator with username:", username);
-      const { data: userProfile, error: userProfileError } = await supabase
-        .from("user_profiles")
-        .select("id, name, pfp_link")
-        .eq("username", username)
-        .single();
+      // Use the existing userSearchResult to avoid extra query
+      const userProfile = userSearchResult;
 
-      if (userProfileError || !userProfile) {
+      if (!userProfile) {
         toast.toast({
           variant: "destructive",
           title: "Error",
@@ -294,15 +283,17 @@ const ProjectSettings = () => {
       }
 
       const userId = userProfile.id;
+      if (userId === (await supabase.auth.getSession()).data.session?.user?.id) {
+        toast.toast({
+          variant: "destructive",
+          title: "Error",
+          description: "You cannot add yourself as a collaborator.",
+        });
+        return;
+      }
 
       // Check if the user is already a collaborator
-      const { data: existingContributor } = await supabase
-        .from("project_contributors")
-        .select("user_id")
-        .eq("user_id", userId)
-        .eq("project_id", id);
-
-      if (existingContributor && existingContributor.length > 0) {
+      if (contributors.some((contributor) => contributor.user_id === userId)) {
         toast.toast({
           variant: "destructive",
           title: "Error",
@@ -317,7 +308,7 @@ const ProjectSettings = () => {
         {
           p_project_id: id,
           p_user_id: userId,
-          p_role: role,
+          p_role: newContributorRole,
         }
       );
 
@@ -338,17 +329,15 @@ const ProjectSettings = () => {
           ...prevContributors,
           {
             user_id: userId,
-            role,
-            user_profiles: {
-              id: userId,
-              name: userProfile.name,
-              avatar_url: userProfile.pfp_link || "",
-            },
+            role: newContributorRole,
+            user_profiles: userProfile,
           },
         ]);
         // Reset the input fields
         setNewContributorUsername("");
         setNewContributorRole("");
+        setUserSearchResult(null);
+        setIsAlertDialogOpen(false);
       }
     } catch (error) {
       console.error("Unexpected error adding collaborator:", error);
@@ -394,10 +383,56 @@ const ProjectSettings = () => {
       toast.toast({
         variant: "destructive",
         title: "Error",
-        description: "An unexpected error occurred while removing the contributor.",
+        description:
+          "An unexpected error occurred while removing the contributor.",
       });
     }
   };
+
+  // Function to search for a user by username with debounce
+  const searchUserByUsername = useCallback(
+    async (username: string) => {
+      setUserSearchLoading(true);
+      try {
+        const { data: userProfile, error } = await supabase
+          .from("user_profiles")
+          .select("id, name, username, pfp_link")
+          .eq("username", username)
+          .single();
+
+        if (error || !userProfile) {
+          setUserSearchResult(null);
+          setUserSearchError("User not found.");
+        } else {
+          setUserSearchResult(userProfile);
+          setUserSearchError(null);
+        }
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+        setUserSearchResult(null);
+        setUserSearchError("An error occurred.");
+      } finally {
+        setUserSearchLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (newContributorUsername.trim() === "") {
+      setUserSearchResult(null);
+      setUserSearchError(null);
+      return;
+    }
+
+    const handler = setTimeout(() => {
+      searchUserByUsername(newContributorUsername.trim());
+    }, 500);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [newContributorUsername, searchUserByUsername]);
 
   return (
     <div className="w-full min-h-full flex flex-col py-6 px-4 sm:py-10 sm:px-20">
@@ -458,7 +493,9 @@ const ProjectSettings = () => {
                 <Textarea
                   id="ProjDesc"
                   value={projectData.description || ""}
-                  onChange={(e) => handleInputChange("description", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("description", e.target.value)
+                  }
                   placeholder="Project Description"
                 />
               </div>
@@ -468,7 +505,9 @@ const ProjectSettings = () => {
                   type="url"
                   id="ProjCover"
                   value={projectData.project_cover}
-                  onChange={(e) => handleInputChange("project_cover", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("project_cover", e.target.value)
+                  }
                   placeholder="Project Cover URL"
                 />
               </div>
@@ -488,7 +527,7 @@ const ProjectSettings = () => {
                         <Button variant="ghost" className="h-fit">
                           <Avatar className="h-8 w-8">
                             <AvatarImage
-                              src={contributor.user_profiles.avatar_url || ""}
+                              src={contributor.user_profiles.pfp_link || ""}
                             />
                             <AvatarFallback>
                               {contributor.user_profiles.name
@@ -505,8 +544,8 @@ const ProjectSettings = () => {
                             Edit {contributor.user_profiles.name}&apos;s Permission
                           </DialogTitle>
                           <DialogDescription>
-                            Change the role of this contributor or remove them from the
-                            project.
+                            Change the role of this contributor or remove them
+                            from the project.
                           </DialogDescription>
                         </DialogHeader>
                         <div className="flex items-center gap-3">
@@ -518,7 +557,10 @@ const ProjectSettings = () => {
                                 removeContributor(contributor.user_id);
                               } else {
                                 // Update the role using the stored procedure
-                                updateContributorRole(contributor.user_id, value);
+                                updateContributorRole(
+                                  contributor.user_id,
+                                  value
+                                );
                               }
                             }}
                           >
@@ -526,7 +568,9 @@ const ProjectSettings = () => {
                               <SelectValue placeholder="Select Role" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="collaborator">Collaborator</SelectItem>
+                              <SelectItem value="collaborator">
+                                Collaborator
+                              </SelectItem>
                               <SelectItem value="viewer">Viewer</SelectItem>
                               <SelectItem value="delete">Remove</SelectItem>
                             </SelectContent>
@@ -549,45 +593,144 @@ const ProjectSettings = () => {
                           Add a user to the project and assign their role.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="text"
-                          id="ProjMember"
-                          placeholder="Enter a username"
-                          className="rounded-md"
-                          value={newContributorUsername}
-                          onChange={(e) => setNewContributorUsername(e.target.value)}
-                        />
-                        <Select
-                          value={newContributorRole}
-                          onValueChange={(value) => setNewContributorRole(value)}
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="collaborator">Collaborator</SelectItem>
-                            <SelectItem value="viewer">Viewer</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          className="ml-4"
-                          onClick={() => {
-                            const username = newContributorUsername.trim();
-                            const role = newContributorRole;
-                            if (username && role) {
-                              addCollaborator(username, role);
-                            } else {
-                              toast.toast({
-                                variant: "destructive",
-                                title: "Error",
-                                description: "Please enter a username and select a role.",
-                              });
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="text"
+                            id="ProjMember"
+                            placeholder="Enter a username"
+                            className="rounded-md w-full"
+                            value={newContributorUsername}
+                            onChange={(e) =>
+                              setNewContributorUsername(e.target.value)
                             }
-                          }}
-                        >
-                          Add
-                        </Button>
+                          />
+                          <Select
+                            value={newContributorRole}
+                            onValueChange={(value) =>
+                              setNewContributorRole(value)
+                            }
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="collaborator">
+                                Collaborator
+                              </SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {userSearchLoading ? (
+                          <div className="flex items-center gap-2">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div>
+                              <Skeleton className="h-4 w-32 mb-1" />
+                              <Skeleton className="h-4 w-24" />
+                            </div>
+                          </div>
+                        ) : userSearchResult ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage
+                                src={userSearchResult.pfp_link || ""}
+                              />
+                              <AvatarFallback>
+                                {userSearchResult.name
+                                  ? userSearchResult.name.charAt(0)
+                                  : "?"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-semibold">
+                                {userSearchResult.name}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                @{userSearchResult.username}
+                              </p>
+                            </div>
+                          </div>
+                        ) : userSearchError ? (
+                          <p className="text-sm text-red-500">
+                            {userSearchError}
+                          </p>
+                        ) : null}
+
+                        {/* AlertDialog for confirmation */}
+                        <AlertDialog open={isAlertDialogOpen}>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              className="mt-2"
+                              onClick={() => {
+                                if (
+                                  newContributorUsername.trim() &&
+                                  newContributorRole &&
+                                  userSearchResult
+                                ) {
+                                  setIsAlertDialogOpen(true);
+                                } else {
+                                  toast.toast({
+                                    variant: "destructive",
+                                    title: "Error",
+                                    description:
+                                      "Please enter a valid username and select a role.",
+                                  });
+                                }
+                              }}
+                            >
+                              Add
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Confirm Adding Collaborator
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                You are about to add{" "}
+                                {userSearchResult?.name || "this user"} as a{" "}
+                                {newContributorRole}.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <CardContent>
+                            <Card className="my-4 flex items-center gap-3 p-3">
+                                <Avatar className="h-16 w-16">
+                                  <AvatarImage
+                                    src={userSearchResult?.pfp_link || ""}
+                                  />
+                                  <AvatarFallback>
+                                    {userSearchResult?.name
+                                      ? userSearchResult.name.charAt(0)
+                                      : "?"}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="text-lg font-semibold">
+                                    {userSearchResult?.name}
+                                  </p>
+                                  <p className="text-sm text-gray-500">
+                                    @{userSearchResult?.username}
+                                  </p>
+                                </div>
+                            </Card>
+                            </CardContent>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel
+                                onClick={() => setIsAlertDialogOpen(false)}
+                              >
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => {
+                                  addCollaborator();
+                                }}
+                              >
+                                Confirm
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </DialogContent>
                   </Dialog>

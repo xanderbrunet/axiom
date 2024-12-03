@@ -270,16 +270,16 @@ const ProjectsPage = () => {
                 onChange={(e) => setProjName(e.target.value)}
               />
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2">
               <DialogClose>
-                <Button variant="secondary">Cancel</Button>
+                <Button variant="secondary" className="w-full">Cancel</Button>
               </DialogClose>
               <Button
                 onClick={createProject}
                 className={`${
                   createButtonStatus !== "Create Project"
-                    ? "text-gray-400 cursor-not-allowed pointer-events-none"
-                    : ""
+                    ? "text-gray-400 cursor-not-allowed pointer-events-none w-full"
+                    : "w-full"
                 }`}
               >
                 <motion.div
@@ -351,7 +351,7 @@ const ProjectsPage = () => {
                               Are you sure you want to delete this project? This
                               action cannot be undone.
                             </DialogDescription>
-                            <DialogFooter>
+                            <DialogFooter className="gap-2">
                               <DialogClose asChild>
                                 <Button variant="secondary">Cancel</Button>
                               </DialogClose>

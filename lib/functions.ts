@@ -42,6 +42,7 @@ interface UserProfile {
     id: string;
     name: string;
     username: string;
+    pfp_link: string;
   }
   
   export async function getUserInfoFromProfiles(
@@ -86,6 +87,8 @@ interface UserProfile {
         return userProfiles?.[0]?.name || null;
       case "username":
         return userProfiles?.[0]?.username || null;
+      case "pfp":
+        return userProfiles?.[0]?.pfp_link || null;
       default:
         console.error(`Unsupported info type: ${info}`);
         return null;

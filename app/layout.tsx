@@ -40,11 +40,11 @@ export default async function RootLayout({
         className={`${publicSans.variable} ${kings.variable} antialiased overflow-x-hidden bg-background w-dvw min-h-dvh`}
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <SidebarProvider defaultOpen={defaultOpen}>
-            <SidebarTrigger className="fixed top-3 left-3 bg-background dark:text-white w-11 h-11 z-[49]" />
-            <PageTransition>{children}</PageTransition>
-            <Toaster />
-          </SidebarProvider>
+            <SidebarProvider defaultOpen={defaultOpen}>
+              <Toaster />
+              <SidebarTrigger className="fixed top-3 left-3 bg-background dark:text-white w-11 h-11 z-[49]" />
+              <PageTransition>{children}</PageTransition>
+            </SidebarProvider>
         </ThemeProvider>
       </body>
     </html>
