@@ -8,8 +8,8 @@ const ProjectPage = () => {
     const id = params.id;
 
     return (
-        <div>
-            <h1>Viewing project ID: <b>{id}</b></h1>
+        <div className='w-full min-h-full flex flex-col'>
+            <p>Homepage for id: {id}</p>
         </div>
     );
 };

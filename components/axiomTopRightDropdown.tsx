@@ -36,7 +36,7 @@ export const AxiomTopRightDropdown = () => {
     }, []);
 
     return (
-        <div className="fixed top-3 right-3 z-40">
+        <div className="fixed top-2 right-2 p-1 bg-background z-40">
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <motion.button
