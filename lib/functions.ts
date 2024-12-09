@@ -106,3 +106,36 @@ export async function getUserInfo(info: string){
             return null;
     }
 }
+
+export async function fetchAndSaveUserSettings(){
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    console.error("Error fetching session:", error.message);
+    return;
+  }
+  const userId = data.session?.user?.id;
+  if (userId) {
+    const { data: userSettings, error: settingsError } = await supabase
+      .from("user_settings")
+      .select()
+      .eq("id", userId);
+    if (settingsError) {
+      console.error("Error fetching user settings:", settingsError.message);
+      return;
+    }
+    if (userSettings && userSettings.length > 0) {
+      secureLocalStorage.setItem("user_settings", userSettings);
+    }
+  }
+}
+
+export async function getUserSettings(refresh: boolean = false) {
+  let userSettings = secureLocalStorage.getItem("user_settings") as UserProfile[] | null;
+
+  if (refresh || !userSettings || userSettings.length === 0) {
+    await fetchAndSaveUserSettings();
+    userSettings = secureLocalStorage.getItem("user_settings") as UserProfile[] | null;
+  }
+
+  return userSettings && userSettings.length > 0 ? userSettings[0] : null;
+}

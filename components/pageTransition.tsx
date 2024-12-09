@@ -34,7 +34,7 @@ export default function PageTransition({ children }: PageTransitionProps) {
             <AxiomTopRightDropdown />
           </>
         )}
-        <div className='flex overflow-hidden'>
+        <div className='flex overflow-hidden w-full'>
           {children}
         </div>
     </div>
