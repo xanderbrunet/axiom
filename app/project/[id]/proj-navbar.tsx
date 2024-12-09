@@ -1,55 +1,67 @@
 // app/projects/[id]/page.tsx
 "use client";
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import {
-    NavigationMenu,
-    NavigationMenuItem,
-    NavigationMenuLink,
-    NavigationMenuList,
-  } from "@/components/ui/navigation-menu"
-import { navigationMenuTriggerStyle } from "@/components/ui/navigation-menu"
-import Link from 'next/link';
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import React from "react";
+import { LuChevronDown } from "react-icons/lu";
 
 const ProjNavbar = () => {
     const params = useParams();
-    const id = params.id;
+    const router = useRouter();
+    const id = params?.id;
+
+    const [page, setPage] = React.useState("home");
+
+    React.useEffect(() => {
+        const path = window.location.pathname.split("/").pop();
+        if (path === id || !path) {
+            setPage("home");
+        } else if (["files", "extensions", "settings"].includes(path)) {
+            setPage(path);
+        } else {
+            setPage("home");
+        }
+    }, [id]);
+
+    const handleNavigation = (value: string) => {
+        setPage(value);
+        router.push(`/project/${id}/${value === "home" ? "" : value}`);
+    };
 
     return (
-            <div className='w-full h-fit border-s-neutral-100 border-b-[1px] p-1 mt-14 md:mt-0 fixed bg-background z-30'>
-                <NavigationMenu>
-                    <NavigationMenuList>
-                        <NavigationMenuItem>
-                            <Link href={`/project/${id}/`} legacyBehavior passHref>
-                                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                                Home
-                                </NavigationMenuLink>
-                            </Link>
-                        </NavigationMenuItem>
-                        <NavigationMenuItem>
-                            <Link href={`/project/${id}/files`} legacyBehavior passHref>
-                                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                                Files
-                                </NavigationMenuLink>
-                            </Link>
-                        </NavigationMenuItem>
-                        <NavigationMenuItem>
-                            <Link href={`/project/${id}/extensions`} legacyBehavior passHref>
-                                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                                Extensions
-                                </NavigationMenuLink>
-                            </Link>
-                        </NavigationMenuItem>
-                        <NavigationMenuItem>
-                            <Link href={`/project/${id}/settings`} legacyBehavior passHref>
-                                <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                                Project Settings
-                                </NavigationMenuLink>
-                            </Link>
-                        </NavigationMenuItem>
-                    </NavigationMenuList>
-                </NavigationMenu>
-            </div>
+        <div className="w-fit h-fit mt-3 md:ml-3 ml-16 fixed z-30">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="text-lg py-5">
+                        {page.charAt(0).toUpperCase() + page.slice(1)} <LuChevronDown />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                    <DropdownMenuLabel>Select a Page</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup value={page} onValueChange={handleNavigation}>
+                        <DropdownMenuRadioItem value="home">Home</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="files">Files</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="extensions">
+                            Extensions
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="settings">
+                            Settings
+                        </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
     );
 };
 

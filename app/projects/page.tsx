@@ -418,7 +418,7 @@ const ProjectsPage = () => {
                   ))}
                 </motion.div>
               ) : (
-                <p className="text-gray-500">You do not have any projects.</p>
+                <p className="text-gray-500">You do not own any projects.</p>
               )}
             </div>
 

@@ -27,6 +27,7 @@ import { LuPlus } from "react-icons/lu";
 import { supabase } from "@/lib/createSupabaseClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@radix-ui/react-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,13 +40,22 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
+import { AnimatePresence, motion } from "framer-motion";
+import { useAutosave } from "../proj-autosave";
 
 const ProjectSettings = () => {
   const params = useParams();
   const id = params.id;
+  const { setAutosaveMessage, setAutosaveLoading } = useAutosave();
 
   const toast = useToast();
   const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!loading) {
+      setAutosaveLoading(false);
+      setAutosaveMessage("Autosave is ready");
+    }
+  }, [loading, setAutosaveLoading, setAutosaveMessage]);
   const [projectData, setProjectData] = useState({
     title: "",
     description: "",
@@ -163,25 +173,31 @@ const ProjectSettings = () => {
 
   // Handle autosave
   const handleInputChange = (field: string, value: string) => {
+    // Update project data immediately
     setProjectData((prevData) => ({
       ...prevData,
       [field]: value,
     }));
-
+  
+    // Set loader and saving message immediately
+    setAutosaveLoading(true);
+    setAutosaveMessage("Saving changes...");
+  
+    // Clear previous timeout if any
     if (autosaveTimeout) {
       clearTimeout(autosaveTimeout);
     }
-
+  
+    // Set a new timeout for saving changes
     setAutosaveTimeout(
       setTimeout(() => {
         saveChanges({ [field]: value });
       }, 3000)
     );
   };
-
+  
   // Save changes to the database (only update the changed fields)
   const saveChanges = async (updatedFields: Partial<typeof projectData>) => {
-    // Ensure `updatedFields` doesn't contain invalid keys like `role`
     const validFields = ["title", "description", "project_cover", "visibility"];
     const filteredFields = Object.keys(updatedFields)
       .filter((key) => validFields.includes(key))
@@ -190,18 +206,21 @@ const ProjectSettings = () => {
           updatedFields[key as keyof typeof projectData];
         return obj;
       }, {} as Partial<typeof projectData>);
-
-    // Only update if we have fields to update
+  
     if (Object.keys(filteredFields).length === 0) {
       console.log("No changes to save.");
+      // Reset loader and message if there are no changes
+      setAutosaveLoading(false);
+      setAutosaveMessage("Autosave is enabled");
       return;
     }
+  
     try {
-      console.log("Saving changes:", filteredFields);
       const { error } = await supabase
         .from("projects")
         .update(filteredFields)
         .eq("id", id);
+  
       if (error) {
         console.error("Error saving changes:", error);
         toast.toast({
@@ -216,6 +235,10 @@ const ProjectSettings = () => {
           description: "Changes saved successfully.",
         });
       }
+  
+      // Reset loader and set autosave success message
+      setAutosaveLoading(false);
+      setAutosaveMessage("All changes saved.");
     } catch (error) {
       console.error("Unexpected error saving changes:", error);
       toast.toast({
@@ -223,8 +246,12 @@ const ProjectSettings = () => {
         title: "Error",
         description: "An unexpected error occurred.",
       });
+  
+      // Reset loader and set error message
+      setAutosaveLoading(false);
+      setAutosaveMessage("Autosave is enabled");
     }
-  };
+  };  
 
   // Handle role update for a contributor
   const updateContributorRole = async (contributorId: string, role: string) => {
@@ -317,7 +344,10 @@ const ProjectSettings = () => {
         toast.toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to add collaborator.",
+          description: collaboratorError.code === "P0001"
+        ? "You do not have permission to add a collaborator."
+        : "Failed to add collaborator.",
+        action: collaboratorError.code === "P0001" ? <ToastAction altText="Request">Request</ToastAction> : undefined,
         });
       } else {
         toast.toast({
@@ -436,8 +466,14 @@ const ProjectSettings = () => {
 
   return (
     <div className="w-full min-h-full flex flex-col py-6 px-4 sm:py-10 sm:px-20">
+      <AnimatePresence mode="wait">
       {loading ? (
-        <>
+        <motion.div
+            key="skeleton"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
           {/* Skeleton for Project Information Section */}
           <div className="w-full h-fit flex flex-col sm:flex-row justify-between relative gap-6 sm:gap-0">
             <Skeleton className="h-10 w-1/3 mb-4" />
@@ -471,9 +507,15 @@ const ProjectSettings = () => {
               </div>
             </div>
           </div>
-        </>
+          </motion.div>
       ) : (
-        <>
+        <motion.div
+        key="content"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+      >
           {/* Project Information */}
           <div className="w-full h-fit flex flex-col sm:flex-row justify-between relative gap-6 sm:gap-0">
             <h1 className="text-2xl font-semibold">Project Information</h1>
@@ -737,9 +779,10 @@ const ProjectSettings = () => {
                 </div>
               </div>
             </div>
-          </div>
-        </>
+            </div>
+            </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 };
